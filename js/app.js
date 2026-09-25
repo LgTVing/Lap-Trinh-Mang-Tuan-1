@@ -875,7 +875,6 @@ class OTTApp {
     this.tourneySingleRenderer.readOnly = !canMoveCheck.allowed;
     if (table.lastMove) this.tourneySingleRenderer.setLastMove(table.lastMove);
 
-    const assignment = this.tournament.getPlayerAssignment(user.username);
     const myRole = (assignment && assignment.tableId === Number(tableId)) ? assignment.role : null;
     this.tourneySingleRenderer.render(engine.board, myRole, canMoveCheck.allowed);
   }

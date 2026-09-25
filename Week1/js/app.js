@@ -1,6 +1,7 @@
 /**
  * OTTv2 Main Application Controller
- * Quản lý Sảnh (Lobby), Phòng chờ (Waiting Room), Trận đấu (Game Arena) và đồng bộ qua playhtml.fun.
+ * Quản lý Sảnh (Lobby), Xác thực / Chế độ Khách (Auth), Phòng chờ (Waiting Room), 
+ * Trận đấu (Game Arena), Đồng bộ qua playhtml.fun và Đấu trường Pro Tournament.
  */
 
 import { GameEngine } from './GameEngine.js';
@@ -10,6 +11,7 @@ import { GameTimer } from './timer.js';
 import { SettingsManager } from './settingsManager.js';
 import { sound } from './audio.js';
 import { PLAYERS, GAME_STATUS, PIECE_TYPES } from './constants.js';
+import { auth, USER_ROLES } from './authManager.js';
 
 class OTTApp {
   constructor() {
@@ -27,8 +29,10 @@ class OTTApp {
     this.dom = {};
   }
 
-  init() {
+  async init() {
     this.cacheDOMElements();
+    await auth.init();
+    this.updateUserAuthUI();
     this.initTimer();
     this.initRenderer();
     this.initMultiplayer();
@@ -43,6 +47,16 @@ class OTTApp {
       waitingScreen: document.getElementById('waiting-screen'),
       gameScreen: document.getElementById('game-screen'),
 
+      // Header Auth & Actions
+      userProfileBadge: document.getElementById('user-profile-badge'),
+      userRoleIcon: document.getElementById('user-role-icon'),
+      userDisplayName: document.getElementById('user-display-name'),
+      userRolePill: document.getElementById('user-role-pill'),
+      btnOpenLogin: document.getElementById('btn-open-login'),
+      btnLogout: document.getElementById('btn-logout'),
+      btnToggleSound: document.getElementById('btn-toggle-sound'),
+      btnHelp: document.getElementById('btn-help'),
+
       // Lobby Controls
       presetPills: document.querySelectorAll('.preset-pill'),
       timeSelect: document.getElementById('time-control-select'),
@@ -53,6 +67,7 @@ class OTTApp {
       joinRoomInput: document.getElementById('join-room-input'),
       btnJoinRoom: document.getElementById('btn-join-room'),
       btnLocalPlay: document.getElementById('btn-local-play'),
+      btnProTournament: document.getElementById('btn-pro-tournament'),
 
       // Waiting Room Elements
       waitingRoomCodeBox: document.getElementById('waiting-room-code-box'),
@@ -92,11 +107,10 @@ class OTTApp {
 
       // History & Actions
       historyList: document.getElementById('history-list'),
+      btnOfferDraw: document.getElementById('btn-offer-draw'),
       btnResign: document.getElementById('btn-resign'),
       btnRematch: document.getElementById('btn-rematch'),
       btnExitLobby: document.getElementById('btn-exit-lobby'),
-      btnToggleSound: document.getElementById('btn-toggle-sound'),
-      btnHelp: document.getElementById('btn-help'),
 
       // Modals
       resultModal: document.getElementById('result-modal'),
@@ -109,18 +123,69 @@ class OTTApp {
       rulesModal: document.getElementById('rules-modal'),
       btnCloseRules: document.getElementById('btn-close-rules'),
 
+      // Auth Modal
+      loginModal: document.getElementById('login-modal'),
+      loginForm: document.getElementById('login-form'),
+      loginUsername: document.getElementById('login-username'),
+      loginPassword: document.getElementById('login-password'),
+      btnPlayAsGuest: document.getElementById('btn-play-as-guest'),
+      btnCloseLogin: document.getElementById('btn-close-login'),
+      quickAccBtns: document.querySelectorAll('.quick-acc-btn'),
+
+      // Draw Offer Modal
+      drawOfferModal: document.getElementById('draw-offer-modal'),
+      drawOfferDesc: document.getElementById('draw-offer-desc'),
+      btnAcceptDraw: document.getElementById('btn-accept-draw'),
+      btnDeclineDraw: document.getElementById('btn-decline-draw'),
+
+      // Pro Tournament Modal
+      tournamentModal: document.getElementById('tournament-modal'),
+      tournamentModalBody: document.getElementById('tournament-modal-body'),
+      btnCloseTournament: document.getElementById('btn-close-tournament'),
+
       // Toast
       toast: document.getElementById('toast')
     };
   }
 
+  updateUserAuthUI() {
+    const user = auth.getCurrentUser();
+    if (this.dom.userDisplayName) {
+      this.dom.userDisplayName.textContent = user.displayName;
+    }
+
+    if (this.dom.userRolePill) {
+      if (user.role === USER_ROLES.PRO_PLAYER) {
+        this.dom.userRoleIcon.textContent = '👑';
+        this.dom.userRolePill.className = 'role-pill role-pro';
+        this.dom.userRolePill.textContent = `PRO (${user.rating})`;
+      } else if (user.role === USER_ROLES.PLAYER) {
+        this.dom.userRoleIcon.textContent = '🎮';
+        this.dom.userRolePill.className = 'role-pill role-player';
+        this.dom.userRolePill.textContent = `PLAYER (${user.rating})`;
+      } else {
+        this.dom.userRoleIcon.textContent = '👤';
+        this.dom.userRolePill.className = 'role-pill role-guest';
+        this.dom.userRolePill.textContent = 'GUEST';
+      }
+    }
+
+    if (auth.isGuest()) {
+      if (this.dom.btnOpenLogin) this.dom.btnOpenLogin.style.display = 'inline-flex';
+      if (this.dom.btnLogout) this.dom.btnLogout.style.display = 'none';
+    } else {
+      if (this.dom.btnOpenLogin) this.dom.btnOpenLogin.style.display = 'none';
+      if (this.dom.btnLogout) this.dom.btnLogout.style.display = 'inline-flex';
+    }
+  }
+
   initTimer() {
     this.timer = new GameTimer({
-      onTick: ({ timers, currentPlayer }) => {
+      onTick: ({ timers }) => {
         this.dom.p1Clock.textContent = GameTimer.formatTime(timers[PLAYERS.P1]);
         this.dom.p2Clock.textContent = GameTimer.formatTime(timers[PLAYERS.P2]);
       },
-      onTimeout: (timedOutPlayer, type) => {
+      onTimeout: (timedOutPlayer) => {
         const result = this.engine.handleTimeout(timedOutPlayer);
         this.showGameOverModal(result);
         if (this.mode === 'ONLINE' && this.multiplayer) {
@@ -163,9 +228,16 @@ class OTTApp {
           this.timer.stop();
           this.showGameOverModal(this.engine.result);
         } else if (this.engine.status === GAME_STATUS.PLAYING) {
+          // Nếu ván mới hoặc tiếp tục chơi, đóng modal kết quả và modal cầu hòa
+          this.closeModal(this.dom.resultModal);
+          this.closeModal(this.dom.drawOfferModal);
           this.timer.setTimers(this.engine.timers, this.engine.settings.moveTime);
           this.timer.start(this.engine.currentPlayer);
         }
+      },
+      // Lắng nghe cập nhật lời mời hòa cờ
+      onDrawOffer: (drawOffer) => {
+        this.handleDrawOffer(drawOffer);
       },
       onError: (msg) => {
         this.showToast(msg);
@@ -238,6 +310,40 @@ class OTTApp {
       copyCode(this.dom.roomCodeDisplay.dataset.code);
     });
 
+    // Đề nghị hòa cờ (Offer Draw)
+    this.dom.btnOfferDraw.addEventListener('click', () => {
+      if (this.engine.status !== GAME_STATUS.PLAYING) return;
+      if (this.mode === 'ONLINE' && this.multiplayer) {
+        this.multiplayer.sendDrawOffer();
+        this.showToast('Đã gửi lời mời hòa cờ tới đối thủ. Vui lòng chờ phản hồi...');
+      } else {
+        if (confirm('Hai bên có đồng ý hòa ván cờ này không?')) {
+          const result = this.engine.agreeDraw();
+          this.timer.stop();
+          this.showGameOverModal(result);
+        }
+      }
+    });
+
+    // Đồng ý / Từ chối lời mời hòa
+    this.dom.btnAcceptDraw.addEventListener('click', () => {
+      this.closeModal(this.dom.drawOfferModal);
+      const result = this.engine.agreeDraw();
+      this.timer.stop();
+      this.showGameOverModal(result);
+      if (this.mode === 'ONLINE' && this.multiplayer) {
+        this.multiplayer.respondDrawOffer(true, this.engine.getState());
+      }
+    });
+
+    this.dom.btnDeclineDraw.addEventListener('click', () => {
+      this.closeModal(this.dom.drawOfferModal);
+      if (this.mode === 'ONLINE' && this.multiplayer) {
+        this.multiplayer.respondDrawOffer(false);
+      }
+      this.showToast('Bạn đã từ chối lời mời hòa cờ.');
+    });
+
     // Đầu hàng (Resign)
     this.dom.btnResign.addEventListener('click', () => {
       if (this.engine.status !== GAME_STATUS.PLAYING) return;
@@ -252,7 +358,7 @@ class OTTApp {
       }
     });
 
-    // Chơi lại (Rematch)
+    // Chơi lại ván mới (Rematch)
     this.dom.btnRematch.addEventListener('click', () => this.restartGame());
     this.dom.btnModalRematch.addEventListener('click', () => {
       this.closeModal(this.dom.resultModal);
@@ -276,6 +382,112 @@ class OTTApp {
     // Luật chơi
     this.dom.btnHelp.addEventListener('click', () => this.openModal(this.dom.rulesModal));
     this.dom.btnCloseRules.addEventListener('click', () => this.closeModal(this.dom.rulesModal));
+
+    // Đăng nhập / Đăng xuất / Khách
+    this.dom.btnOpenLogin.addEventListener('click', () => this.openModal(this.dom.loginModal));
+    this.dom.btnCloseLogin.addEventListener('click', () => this.closeModal(this.dom.loginModal));
+    this.dom.btnLogout.addEventListener('click', () => {
+      auth.logout();
+      this.updateUserAuthUI();
+      this.showToast('Đã đăng xuất! Chuyển sang chế độ Khách (Guest).');
+    });
+
+    this.dom.btnPlayAsGuest.addEventListener('click', () => {
+      auth.setGuest();
+      this.updateUserAuthUI();
+      this.closeModal(this.dom.loginModal);
+      this.showToast('Tiếp tục với tư cách Khách (Guest).');
+    });
+
+    this.dom.loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = this.dom.loginUsername.value;
+      const password = this.dom.loginPassword.value;
+      const res = auth.login(username, password);
+      if (res.success) {
+        this.updateUserAuthUI();
+        this.closeModal(this.dom.loginModal);
+        this.showToast(`Đăng nhập thành công! Chào mừng ${res.user.displayName}`);
+      } else {
+        this.showToast(res.error);
+      }
+    });
+
+    // Nút chọn nhanh tài khoản demo
+    this.dom.quickAccBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.dom.loginUsername.value = btn.dataset.user;
+        this.dom.loginPassword.value = btn.dataset.pass;
+      });
+    });
+
+    // Banner & Modal Đấu trường Pro Tournament
+    this.dom.btnProTournament.addEventListener('click', () => this.handleProTournamentClick());
+    this.dom.btnCloseTournament.addEventListener('click', () => this.closeModal(this.dom.tournamentModal));
+  }
+
+  handleProTournamentClick() {
+    const user = auth.getCurrentUser();
+    const body = this.dom.tournamentModalBody;
+
+    if (auth.isGuest()) {
+      body.innerHTML = `
+        <div style="margin-bottom: 0.75rem; color: #f59e0b; font-weight: 700;">
+          ⚠️ BẠN ĐANG Ở CHẾ ĐỘ KHÁCH (GUEST)
+        </div>
+        <p>
+          Đấu Trường Chuyên Nghiệp (Pro Championship) là giải đấu có hệ thống ELO và xếp hạng nghiêm ngặt, chỉ dành riêng cho các tuyển thủ chuyên nghiệp (Role: <strong>Pro Player</strong>).
+        </p>
+        <p style="margin-top: 0.5rem; color: #94a3b8;">
+          Vui lòng đăng nhập bằng tài khoản Pro Player để có thể ghi danh tham gia giải đấu.
+        </p>
+        <div style="margin-top: 1rem; text-align: center;">
+          <button id="btn-login-from-tourney" class="btn btn-primary">🔑 Đăng nhập tài khoản Pro</button>
+        </div>
+      `;
+      setTimeout(() => {
+        const btnLoginTourney = document.getElementById('btn-login-from-tourney');
+        if (btnLoginTourney) {
+          btnLoginTourney.addEventListener('click', () => {
+            this.closeModal(this.dom.tournamentModal);
+            this.openModal(this.dom.loginModal);
+          });
+        }
+      }, 50);
+    } else if (user.role === USER_ROLES.PLAYER) {
+      body.innerHTML = `
+        <div style="margin-bottom: 0.75rem; color: #38bdf8; font-weight: 700;">
+          🔒 CHƯA ĐẠT ĐIỀU KIỆN PRO LEAGUE
+        </div>
+        <p>
+          Chào <strong>${user.displayName}</strong>! Cấp bậc hiện tại của bạn là <strong>Kỳ thủ Nghiệp dư (Player)</strong> với Rating: <strong>${user.rating} ELO</strong>.
+        </p>
+        <p style="margin-top: 0.5rem; color: #94a3b8;">
+          Hệ thống Pro Championship yêu cầu cấp bậc tuyển thủ chuyên nghiệp (<strong>Role: Pro Player</strong> với Rating tối thiểu từ <strong>2400 ELO</strong>).
+        </p>
+        <p style="margin-top: 0.5rem; color: #cbd5e1;">
+          💡 <em>Mẹo: Hãy tiếp tục rèn luyện ở các phòng đấu thường để nâng cao hệ số chiến thuật!</em>
+        </p>
+      `;
+    } else if (user.role === USER_ROLES.PRO_PLAYER) {
+      body.innerHTML = `
+        <div style="margin-bottom: 0.75rem; color: #fbbf24; font-weight: 700;">
+          ⭐ XÁC NHẬN ĐẠI KIỆN TƯỚNG PRO PLAYER
+        </div>
+        <p>
+          Chào mừng tuyển thủ <strong>${user.displayName}</strong> (${user.title})!
+        </p>
+        <p style="margin-top: 0.5rem;">
+          Hệ số ELO hiện tại của bạn: <strong style="color: #fbbf24; font-size: 1.15rem;">${user.rating} ELO</strong> (Đủ điều kiện hạt giống hàng đầu).
+        </p>
+        <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 0.85rem; margin-top: 0.85rem; font-size: 0.88rem; color: #fde68a; line-height: 1.6;">
+          🚀 <strong>TÍNH NĂNG ĐANG PHÁT TRIỂN (SẮP RA MẮT):</strong><br>
+          Hệ thống chia bảng đấu vòng tròn (Round Robin) và nhánh thắng - nhánh thua (Double Elimination) Bo3/Bo5 dành cho 8 Pro Player đang được phát triển theo lộ trình bài tập lớn tuần tiếp theo. Tài khoản của bạn đã được lưu vào danh sách chờ giải đấu!
+        </div>
+      `;
+    }
+
+    this.openModal(this.dom.tournamentModal);
   }
 
   getCurrentSettingsFromUI() {
@@ -302,6 +514,7 @@ class OTTApp {
   async handleCreateRoom() {
     const settings = this.getCurrentSettingsFromUI();
     const roomCode = MultiplayerManager.generateRoomCode();
+    const user = auth.getCurrentUser();
 
     this.mode = 'ONLINE';
     this.myPlayerRole = PLAYERS.P1;
@@ -315,11 +528,11 @@ class OTTApp {
     this.dom.waitingRoomCode.textContent = roomCode;
     this.updateWaitingRoomUI({
       roomCode,
-      p1: { ready: false, present: true },
-      p2: { ready: false, present: false }
+      p1: { name: user.displayName, role: user.role, rating: user.rating, ready: false, present: true },
+      p2: { name: 'Người chơi 2', role: 'guest', rating: 1000, ready: false, present: false }
     });
 
-    const ok = await this.multiplayer.createRoom(roomCode, settings);
+    const ok = await this.multiplayer.createRoom(roomCode, settings, user);
     if (ok) {
       this.showToast(`Phòng ${roomCode} đã tạo! Đang chờ Người chơi 2...`);
     } else {
@@ -337,6 +550,8 @@ class OTTApp {
       return;
     }
 
+    const user = auth.getCurrentUser();
+
     this.mode = 'ONLINE';
     this.myPlayerRole = PLAYERS.P2;
     this.isReady = false;
@@ -348,11 +563,11 @@ class OTTApp {
     this.dom.waitingRoomCode.textContent = code;
     this.updateWaitingRoomUI({
       roomCode: code,
-      p1: { ready: false, present: true },
-      p2: { ready: false, present: true }
+      p1: { name: 'Người chơi 1', role: 'guest', rating: 1000, ready: false, present: true },
+      p2: { name: user.displayName, role: user.role, rating: user.rating, ready: false, present: true }
     });
 
-    const ok = await this.multiplayer.joinRoom(code);
+    const ok = await this.multiplayer.joinRoom(code, user);
     if (ok) {
       this.showToast(`Đã tham gia phòng ${code}! Hãy nhấn Sẵn sàng.`);
     } else {
@@ -394,6 +609,20 @@ class OTTApp {
   updateWaitingRoomUI(roomData) {
     const p1 = roomData.p1 || {};
     const p2 = roomData.p2 || {};
+
+    // Cập nhật tên và role slot P1
+    const p1NameEl = this.dom.slotP1.querySelector('.slot-name');
+    if (p1NameEl) {
+      const p1RoleTag = (p1.role === USER_ROLES.PRO_PLAYER) ? ' [PRO ⭐]' : '';
+      p1NameEl.textContent = `${p1.name || 'Người chơi 1'}${p1RoleTag} (Chủ phòng)`;
+    }
+
+    // Cập nhật tên và role slot P2
+    const p2NameEl = this.dom.slotP2.querySelector('.slot-name');
+    if (p2NameEl) {
+      const p2RoleTag = (p2.role === USER_ROLES.PRO_PLAYER) ? ' [PRO ⭐]' : '';
+      p2NameEl.textContent = `${p2.name || 'Người chơi 2'}${p2RoleTag}`;
+    }
 
     // Cập nhật P1
     if (p1.present) {
@@ -447,13 +676,32 @@ class OTTApp {
     }
   }
 
-  startCountdownAndLaunchGame(roomData) {
-    if (this.dom.waitingCountdownBox.style.display !== 'none') return; // Tránh chạy 2 lần
-    this.dom.waitingCountdownBox.style.display = 'block';
+  handleDrawOffer(drawOffer) {
+    if (!drawOffer) return;
+    if (drawOffer.status === 'PENDING') {
+      if (drawOffer.from !== this.myPlayerRole) {
+        sound.playMove();
+        const opponentName = (drawOffer.from === PLAYERS.P1) ? 'Người chơi 1 (Xanh)' : 'Người chơi 2 (Đỏ)';
+        this.dom.drawOfferDesc.textContent = `Đối thủ [${opponentName}] vừa gửi lời mời HÒA CỜ ván này. Bạn có đồng ý chia điểm không?`;
+        this.openModal(this.dom.drawOfferModal);
+      }
+    } else if (drawOffer.status === 'DECLINED') {
+      if (drawOffer.from !== this.myPlayerRole) {
+        this.showToast('Đối thủ đã từ chối lời mời hòa cờ!');
+      }
+    } else if (drawOffer.status === 'ACCEPTED') {
+      this.closeModal(this.dom.drawOfferModal);
+      this.showToast('Hai bên đã đồng ý hòa cờ!');
+    }
+  }
 
+  startCountdownAndLaunchGame(roomData) {
+    if (this.countdownActive) return;
+    this.countdownActive = true;
+
+    this.dom.waitingCountdownBox.style.display = 'block';
     let count = 3;
     this.dom.waitingCountdownBox.textContent = `🚀 Cả hai đã sẵn sàng! Bắt đầu sau ${count}...`;
-    sound.playMove();
 
     const interval = setInterval(() => {
       count--;
@@ -462,6 +710,7 @@ class OTTApp {
         sound.playMove();
       } else {
         clearInterval(interval);
+        this.countdownActive = false;
         this.dom.waitingCountdownBox.style.display = 'none';
 
         // Vào trận đấu đồng bộ
@@ -470,6 +719,13 @@ class OTTApp {
         } else {
           this.engine.initGame();
         }
+
+        const p1 = roomData.p1 || {};
+        const p2 = roomData.p2 || {};
+        const p1Title = this.dom.p1Card.querySelector('.player-title');
+        const p2Title = this.dom.p2Card.querySelector('.player-title');
+        if (p1Title) p1Title.textContent = p1.name || 'Người chơi 1';
+        if (p2Title) p2Title.textContent = p2.name || 'Người chơi 2';
 
         this.dom.roomCodeDisplay.textContent = `Phòng: ${roomData.roomCode || this.dom.waitingRoomCode.textContent} 📋`;
         this.dom.roomCodeDisplay.dataset.code = roomData.roomCode || this.dom.waitingRoomCode.textContent;
@@ -485,6 +741,8 @@ class OTTApp {
 
   startLocalGame() {
     const settings = this.getCurrentSettingsFromUI();
+    const user = auth.getCurrentUser();
+
     this.mode = 'LOCAL';
     this.myPlayerRole = PLAYERS.P1;
     this.engine = new GameEngine(settings);
@@ -492,6 +750,11 @@ class OTTApp {
 
     this.renderer.setView(PLAYERS.P1);
     this.switchScreen('GAME');
+
+    const p1Title = this.dom.p1Card.querySelector('.player-title');
+    const p2Title = this.dom.p2Card.querySelector('.player-title');
+    if (p1Title) p1Title.textContent = `${user.displayName} (P1)`;
+    if (p2Title) p2Title.textContent = 'Người chơi 2 (P2)';
 
     this.dom.roomCodeDisplay.textContent = 'Chơi 2 người trên cùng máy';
     this.dom.roomCodeDisplay.dataset.code = '';
@@ -514,6 +777,9 @@ class OTTApp {
     this.timer.setTimers(this.engine.timers, currentSettings.moveTime);
     this.timer.start(PLAYERS.P1);
 
+    this.closeModal(this.dom.resultModal);
+    this.closeModal(this.dom.drawOfferModal);
+
     if (this.mode === 'ONLINE' && this.multiplayer) {
       this.multiplayer.sendRematch(this.engine.getState());
     }
@@ -527,6 +793,8 @@ class OTTApp {
     if (this.multiplayer) {
       this.multiplayer.disconnect();
     }
+    this.closeModal(this.dom.resultModal);
+    this.closeModal(this.dom.drawOfferModal);
     this.switchScreen('LOBBY');
   }
 
@@ -568,8 +836,11 @@ class OTTApp {
         this.renderer.clearSelection();
         this.renderer.setLastMove(moveRes.move);
 
-        // Chuyển đồng hồ sang người tiếp theo
-        this.timer.switchPlayer(this.engine.currentPlayer);
+        if (moveRes.gameOver) {
+          this.timer.stop();
+        } else {
+          this.timer.switchPlayer(this.engine.currentPlayer);
+        }
 
         // Đồng bộ lên mạng
         if (this.mode === 'ONLINE' && this.multiplayer) {
@@ -580,7 +851,6 @@ class OTTApp {
 
         // Kiểm tra kết thúc ván đấu
         if (moveRes.gameOver) {
-          this.timer.stop();
           this.showGameOverModal(moveRes.result);
         }
       } else {
@@ -599,9 +869,11 @@ class OTTApp {
       return;
     }
 
-    // Click vào chỗ trống hoặc quân không đi được: Hủy chọn
-    this.renderer.clearSelection();
-    this.renderBoard();
+    // Click vào ô trống hoặc ô không hợp lệ: bỏ chọn
+    if (this.renderer.selectedPos) {
+      this.renderer.clearSelection();
+      this.renderBoard();
+    }
   }
 
   updateGameUI() {
@@ -612,15 +884,7 @@ class OTTApp {
   }
 
   renderBoard() {
-    const isMyTurn = (this.mode === 'LOCAL') 
-      ? true 
-      : (this.engine.currentPlayer === this.myPlayerRole);
-
-    this.renderer.render(
-      this.engine.board,
-      (this.mode === 'LOCAL') ? this.engine.currentPlayer : this.myPlayerRole,
-      isMyTurn
-    );
+    this.renderer.render(this.engine.board);
   }
 
   updateCounters() {
@@ -637,7 +901,27 @@ class OTTApp {
   }
 
   updateTurnBanner() {
+    if (this.engine.status === GAME_STATUS.FINISHED) {
+      if (this.engine.result && !this.engine.result.winner) {
+        this.dom.turnDot.className = 'turn-dot';
+        this.dom.turnDot.style.background = '#f59e0b';
+        this.dom.turnText.textContent = 'Trận đấu kết thúc: HÒA CỜ 🤝';
+        this.dom.p1Card.classList.remove('active-turn');
+        this.dom.p2Card.classList.remove('active-turn');
+        return;
+      }
+      if (this.engine.result && this.engine.result.winner) {
+        const w = this.engine.result.winner;
+        this.dom.turnDot.className = `turn-dot ${w === PLAYERS.P1 ? 'p1' : 'p2'}`;
+        this.dom.turnText.textContent = `Trận đấu kết thúc: ${w === PLAYERS.P1 ? 'Người chơi 1 thắng 🏆' : 'Người chơi 2 thắng 🏆'}`;
+        this.dom.p1Card.classList.toggle('active-turn', w === PLAYERS.P1);
+        this.dom.p2Card.classList.toggle('active-turn', w === PLAYERS.P2);
+        return;
+      }
+    }
+
     const isP1 = (this.engine.currentPlayer === PLAYERS.P1);
+    this.dom.turnDot.style.background = '';
     this.dom.turnDot.className = `turn-dot ${isP1 ? 'p1' : 'p2'}`;
     this.dom.turnText.textContent = isP1 ? 'Lượt: Người chơi 1 (Xanh)' : 'Lượt: Người chơi 2 (Đỏ)';
 
@@ -665,9 +949,9 @@ class OTTApp {
 
   showGameOverModal(result) {
     if (!result) return;
-    sound.playWin();
 
     if (result.winner) {
+      sound.playWin();
       const isWinner = (this.mode === 'LOCAL') 
         ? true 
         : (result.winner === this.myPlayerRole);
@@ -676,6 +960,7 @@ class OTTApp {
       this.dom.resultTitle.textContent = `${result.winner} CHIẾN THẮNG!`;
       this.dom.resultTitle.style.color = (result.winner === PLAYERS.P1) ? '#38bdf8' : '#fb7185';
     } else {
+      sound.playMove();
       this.dom.resultTrophy.textContent = '🤝';
       this.dom.resultTitle.textContent = 'HÒA CỜ!';
       this.dom.resultTitle.style.color = '#f59e0b';

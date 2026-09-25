@@ -317,4 +317,29 @@ test('19. State Serialization & Deserialization không làm mất dữ liệu', 
   assert.equal(game2.turnNumber, 2);
   assert.equal(game2.board['a4'].id, game.board['a4'].id);
   assert.equal(game2.pieces.length, 30);
+  assert.equal(game2.stateHistory.length, game.stateHistory.length);
 });
+
+test('20. agreeDraw() kết thúc ván đấu với kết quả Hòa cờ', () => {
+  const game = new GameEngine();
+  game.initGame();
+  const res = game.agreeDraw('AGREEMENT');
+  assert.equal(game.status, GAME_STATUS.FINISHED);
+  assert.equal(res.winner, null);
+  assert.equal(res.reason, 'AGREEMENT');
+});
+
+test('21. stateHistory được đồng bộ chính xác để bắt lỗi lặp 3 lần qua snapshot', () => {
+  const game = new GameEngine();
+  game.initGame();
+  game.makeMove(PLAYERS.P1, 'a3', 'a4');
+  game.makeMove(PLAYERS.P2, 'a7', 'a6');
+
+  const snapshot = game.getState();
+  const gameRemote = new GameEngine();
+  gameRemote.loadState(snapshot);
+
+  assert.deepEqual(gameRemote.stateHistory, game.stateHistory);
+  assert.ok(gameRemote.stateHistory.length >= 3);
+});
+

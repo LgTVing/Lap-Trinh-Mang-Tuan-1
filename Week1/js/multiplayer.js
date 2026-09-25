@@ -1,6 +1,6 @@
 /**
  * Multiplayer Manager utilizing playhtml.fun
- * Quản lý đồng bộ Realtime State, Phòng chờ (Waiting Room), Trạng thái Sẵn sàng và Nước đi.
+ * Quản lý kết nối, phòng chờ (Waiting Room), đồng bộ nước đi và xử lý hòa cờ qua CDN PartyKit
  */
 
 let playhtmlModule = null;
@@ -22,9 +22,10 @@ async function loadPlayhtml() {
 }
 
 export class MultiplayerManager {
-  constructor({ onRoomUpdate, onGameUpdate, onError }) {
+  constructor({ onRoomUpdate, onGameUpdate, onDrawOffer, onError }) {
     this.onRoomUpdate = onRoomUpdate || (() => {});
     this.onGameUpdate = onGameUpdate || (() => {});
+    this.onDrawOffer = onDrawOffer || (() => {});
     this.onError = onError || (() => {});
 
     this.playhtml = null;
@@ -48,19 +49,24 @@ export class MultiplayerManager {
   /**
    * Khởi tạo phòng với vai trò Host (P1)
    */
-  async createRoom(roomCode, settings) {
+  async createRoom(roomCode, settings, userProfile = null) {
     this.roomCode = roomCode.toUpperCase().trim();
     this.myRole = 'P1';
     this.isHost = true;
 
+    const p1Name = userProfile ? userProfile.displayName : 'Người chơi 1';
+    const p1Role = userProfile ? userProfile.role : 'guest';
+    const p1Rating = userProfile ? userProfile.rating : 1000;
+
     const initialData = {
       roomCode: this.roomCode,
       phase: 'WAITING', // 'WAITING' | 'COUNTDOWN' | 'PLAYING' | 'FINISHED'
-      p1: { id: 'P1', name: 'Người chơi 1', ready: false, present: true },
-      p2: { id: 'P2', name: 'Người chơi 2', ready: false, present: false },
+      p1: { id: 'P1', name: p1Name, role: p1Role, rating: p1Rating, ready: false, present: true },
+      p2: { id: 'P2', name: 'Người chơi 2', role: 'guest', rating: 1000, ready: false, present: false },
       settings: settings,
       gameState: null,
       lastMove: null,
+      drawOffer: null,
       timestamp: Date.now()
     };
 
@@ -70,10 +76,14 @@ export class MultiplayerManager {
   /**
    * Tham gia phòng với vai trò Guest (P2)
    */
-  async joinRoom(roomCode) {
+  async joinRoom(roomCode, userProfile = null) {
     this.roomCode = roomCode.toUpperCase().trim();
     this.myRole = 'P2';
     this.isHost = false;
+
+    const p2Name = userProfile ? userProfile.displayName : 'Người chơi 2';
+    const p2Role = userProfile ? userProfile.role : 'guest';
+    const p2Rating = userProfile ? userProfile.rating : 1000;
 
     // Guest kết nối vào channel với mẫu mặc định { dataStr: '' }
     const ok = await this.connectChannel(this.roomCode, null);
@@ -82,14 +92,18 @@ export class MultiplayerManager {
     // Đánh dấu P2 đã vào phòng
     if (this.roomData) {
       this.roomData.p2.present = true;
+      this.roomData.p2.name = p2Name;
+      this.roomData.p2.role = p2Role;
+      this.roomData.p2.rating = p2Rating;
       this.broadcastRoomData(this.roomData);
     } else {
       // Trường hợp roomData chưa kịp nạp, phát tín hiệu P2 tham gia
       this.broadcastRoomData({
         roomCode: this.roomCode,
         phase: 'WAITING',
-        p1: { id: 'P1', name: 'Người chơi 1', ready: false, present: true },
-        p2: { id: 'P2', name: 'Người chơi 2', ready: false, present: true },
+        p1: { id: 'P1', name: 'Người chơi 1', role: 'guest', rating: 1000, ready: false, present: true },
+        p2: { id: 'P2', name: p2Name, role: p2Role, rating: p2Rating, ready: false, present: true },
+        drawOffer: null,
         timestamp: Date.now()
       });
     }
@@ -116,9 +130,10 @@ export class MultiplayerManager {
       // Đảm bảo tên phòng thống nhất tuyệt đối
       const roomIdentifier = `ottv2_arena_${roomCode}`;
 
+      // Tắt triệt để con trỏ chuột live cursor của cả hai người chơi trên màn hình
       await this.playhtml.init({
         room: roomIdentifier,
-        cursors: { enabled: true }
+        cursors: false
       });
 
       // Để tránh Yjs CRDT deep-diffing bug khi gửi object sâu (81 ô bàn cờ),
@@ -166,6 +181,11 @@ export class MultiplayerManager {
     // Thông báo cập nhật phòng chờ
     this.onRoomUpdate(data);
 
+    // Lắng nghe cập nhật lời mời hòa cờ
+    if (data.drawOffer && this.onDrawOffer) {
+      this.onDrawOffer(data.drawOffer);
+    }
+
     // Nếu đang trong game và có gameState mới
     if (data.gameState && (data.phase === 'PLAYING' || data.phase === 'FINISHED')) {
       this.onGameUpdate(data.gameState, data.lastMove);
@@ -202,6 +222,7 @@ export class MultiplayerManager {
     this.roomData.phase = 'PLAYING';
     this.roomData.gameState = initialGameState;
     this.roomData.lastMove = null;
+    this.roomData.drawOffer = null;
     this.broadcastRoomData(this.roomData);
   }
 
@@ -217,6 +238,44 @@ export class MultiplayerManager {
   }
 
   /**
+   * Gửi lời mời hòa cờ
+   */
+  sendDrawOffer() {
+    if (!this.roomData) return;
+    this.roomData.drawOffer = {
+      from: this.myRole,
+      status: 'PENDING',
+      timestamp: Date.now()
+    };
+    this.broadcastRoomData(this.roomData);
+  }
+
+  /**
+   * Phản hồi lời mời hòa cờ (Đồng ý hoặc Từ chối)
+   */
+  respondDrawOffer(accept, finishedGameState = null) {
+    if (!this.roomData) return;
+    if (accept) {
+      this.roomData.phase = 'FINISHED';
+      if (finishedGameState) {
+        this.roomData.gameState = finishedGameState;
+      }
+      this.roomData.drawOffer = {
+        from: this.myRole,
+        status: 'ACCEPTED',
+        timestamp: Date.now()
+      };
+    } else {
+      this.roomData.drawOffer = {
+        from: this.myRole,
+        status: 'DECLINED',
+        timestamp: Date.now()
+      };
+    }
+    this.broadcastRoomData(this.roomData);
+  }
+
+  /**
    * Đầu hàng
    */
   sendResign(newGameState) {
@@ -227,7 +286,7 @@ export class MultiplayerManager {
   }
 
   /**
-   * Chơi lại (Reset về phòng chờ hoặc tạo ván mới)
+   * Chơi lại (Reset về ván mới)
    */
   sendRematch(newGameState) {
     if (!this.roomData) return;
@@ -236,6 +295,7 @@ export class MultiplayerManager {
     this.roomData.p2.ready = true;
     this.roomData.gameState = newGameState;
     this.roomData.lastMove = null;
+    this.roomData.drawOffer = null;
     this.broadcastRoomData(this.roomData);
   }
 

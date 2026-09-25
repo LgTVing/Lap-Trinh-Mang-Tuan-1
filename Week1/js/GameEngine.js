@@ -413,6 +413,20 @@ export class GameEngine {
   }
 
   /**
+   * Hai bên người chơi đồng ý hòa cờ
+   */
+  agreeDraw(reason = 'AGREEMENT') {
+    if (this.status !== GAME_STATUS.PLAYING) return null;
+    this.status = GAME_STATUS.FINISHED;
+    this.result = {
+      winner: null,
+      reason,
+      details: 'Hai bên người chơi đã đồng ý hòa cờ'
+    };
+    return this.result;
+  }
+
+  /**
    * Lấy snapshot trạng thái game để đồng bộ qua mạng hoặc lưu trữ
    */
   getState() {
@@ -428,6 +442,7 @@ export class GameEngine {
       },
       timers: { ...this.timers },
       history: [...this.history],
+      stateHistory: [...this.stateHistory],
       halfmoveClock: this.halfmoveClock,
       result: this.result ? { ...this.result } : null,
       settings: { ...this.settings }
@@ -449,6 +464,9 @@ export class GameEngine {
     };
     this.timers = { ...state.timers };
     this.history = [...state.history];
+    if (state.stateHistory && Array.isArray(state.stateHistory)) {
+      this.stateHistory = [...state.stateHistory];
+    }
     this.halfmoveClock = state.halfmoveClock || 0;
     this.result = state.result ? { ...state.result } : null;
     if (state.settings) {

@@ -27,6 +27,13 @@
       </div>
 
       <div class="header-actions">
+        <div id="user-profile-badge" class="user-badge" title="Tài khoản hiện tại">
+          <span id="user-role-icon">👤</span>
+          <span id="user-display-name">Khách (Guest)</span>
+          <span id="user-role-pill" class="role-pill role-guest">GUEST</span>
+        </div>
+        <button id="btn-open-login" class="btn btn-secondary" style="font-size: 0.85rem;" title="Đăng nhập tài khoản">🔑 Đăng nhập</button>
+        <button id="btn-logout" class="btn btn-secondary" style="font-size: 0.85rem; display: none;" title="Đăng xuất">🚪 Đăng xuất</button>
         <button id="btn-toggle-sound" class="btn btn-secondary btn-icon" title="Bật/Tắt âm thanh">🔊</button>
         <button id="btn-help" class="btn btn-secondary" title="Xem luật chơi">📖 Luật chơi</button>
       </div>
@@ -34,6 +41,25 @@
 
     <!-- SCREEN 1: LOBBY (Tạo phòng, vào phòng, cấu hình ván đấu) -->
     <main id="lobby-screen" class="lobby-screen">
+      <!-- Banner Đấu Trường Chuyên Nghiệp (Pro Tournament) -->
+      <section class="glass-card tournament-banner-card" style="grid-column: 1 / -1;">
+        <div class="tournament-content">
+          <div class="tournament-info">
+            <div class="tournament-tag">
+              <span>🏆 ĐẤU TRƯỜNG CHUYÊN NGHIỆP (PRO TOURNAMENT)</span>
+              <span class="badge-coming-soon">Sắp ra mắt</span>
+            </div>
+            <h3 class="tournament-title">Hệ Thống Giải Đấu Dành Riêng Cho Pro Player</h3>
+            <p class="tournament-desc">
+              Chế độ thi đấu vòng tròn và loại trực tiếp đỉnh cao với hệ số ELO xếp hạng. Hệ thống phát triển dành riêng cho các tuyển thủ chuyên nghiệp (Role: <strong>Pro Player</strong>).
+            </p>
+          </div>
+          <button id="btn-pro-tournament" class="btn btn-gold">
+            ⚔️ Đăng Ký Giải Đấu
+          </button>
+        </div>
+      </section>
+
       <!-- Cột Tạo phòng & Cài đặt -->
       <section class="glass-card">
         <h2 class="card-title">🎮 Tạo phòng mới</h2>
@@ -289,7 +315,10 @@
 
         <!-- Nút điều khiển -->
         <div class="game-controls">
-          <button id="btn-resign" class="btn btn-danger">🏳️ Đầu hàng (Resign)</button>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <button id="btn-offer-draw" class="btn btn-secondary" style="flex: 1;" title="Đề nghị hòa ván cờ này">🤝 Xin hòa</button>
+            <button id="btn-resign" class="btn btn-danger" style="flex: 1;">🏳️ Đầu hàng</button>
+          </div>
           <div style="display: flex; gap: 0.5rem;">
             <button id="btn-rematch" class="btn btn-secondary" style="flex: 1;">🔄 Chơi lại</button>
             <button id="btn-exit-lobby" class="btn btn-secondary" style="flex: 1;">🚪 Về sảnh</button>
@@ -341,6 +370,85 @@
         </div>
         <div style="margin-top: 1.25rem; text-align: center;">
           <button id="btn-close-rules" class="btn btn-primary" style="min-width: 140px;">Đã hiểu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ĐĂNG NHẬP / CHỌN TÀI KHOẢN (Auth Modal) -->
+    <div id="login-modal" class="modal-overlay">
+      <div class="modal-box" style="max-width: 480px; text-align: left;">
+        <h2 class="modal-title" style="text-align: center; margin-bottom: 0.25rem;">🔐 ĐĂNG NHẬP TÀI KHOẢN</h2>
+        <p style="text-align: center; color: #94a3b8; font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Đăng nhập tài khoản Pro Player hoặc Player để tranh tài xếp hạng
+        </p>
+
+        <form id="login-form">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label for="login-username" class="form-label">Tên đăng nhập:</label>
+            <input type="text" id="login-username" class="form-input" placeholder="Ví dụ: pro_faker hoặc player_nam" required autocomplete="username">
+          </div>
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="login-password" class="form-label">Mật khẩu:</label>
+            <input type="password" id="login-password" class="form-input" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <button type="submit" id="btn-do-login" class="btn btn-primary" style="flex: 1;">🔑 Đăng nhập</button>
+            <button type="button" id="btn-play-as-guest" class="btn btn-secondary" style="flex: 1;">👤 Chơi dạng Khách</button>
+          </div>
+        </form>
+
+        <!-- Nút chọn nhanh tài khoản mẫu -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.85rem; margin-top: 0.5rem;">
+          <span style="font-size: 0.78rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;">⚡ Chọn nhanh tài khoản mẫu (Demo Quick Login):</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
+            <button type="button" class="btn btn-secondary quick-acc-btn" data-user="pro_faker" data-pass="pro_password123" style="font-size: 0.78rem; padding: 0.45rem;">
+              👑 Faker (Pro Player)
+            </button>
+            <button type="button" class="btn btn-secondary quick-acc-btn" data-user="pro_magnus" data-pass="pro_password123" style="font-size: 0.78rem; padding: 0.45rem;">
+              👑 Magnus (Pro Player)
+            </button>
+            <button type="button" class="btn btn-secondary quick-acc-btn" data-user="player_nam" data-pass="user_password123" style="font-size: 0.78rem; padding: 0.45rem;">
+              🎮 Nam (Player)
+            </button>
+            <button type="button" class="btn btn-secondary quick-acc-btn" data-user="player_linh" data-pass="user_password123" style="font-size: 0.78rem; padding: 0.45rem;">
+              🎮 Linh (Player)
+            </button>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1rem;">
+          <button type="button" id="btn-close-login" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.4rem 1.25rem;">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HỎI CẦU HÒA (Draw Offer Dialog) -->
+    <div id="draw-offer-modal" class="modal-overlay">
+      <div class="modal-box" style="max-width: 420px;">
+        <div class="modal-trophy">🤝</div>
+        <h2 class="modal-title">LỜI MỜI HÒA CỜ</h2>
+        <p id="draw-offer-desc" class="modal-desc">
+          Đối thủ gửi lời mời hòa cờ ván này. Bạn có đồng ý chia điểm không?
+        </p>
+        <div class="modal-actions">
+          <button id="btn-accept-draw" class="btn btn-primary">✅ Đồng ý hòa</button>
+          <button id="btn-decline-draw" class="btn btn-danger">❌ Từ chối</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL THÔNG TIN GIẢI ĐẤU PRO (Pro Tournament Modal) -->
+    <div id="tournament-modal" class="modal-overlay">
+      <div class="modal-box" style="max-width: 520px; text-align: left;">
+        <div style="text-align: center; margin-bottom: 0.75rem;">
+          <span style="font-size: 2.5rem;">🏆</span>
+          <h2 class="modal-title">OTTv2 PRO CHAMPIONSHIP</h2>
+          <span class="role-pill role-pro" style="display: inline-block; margin-top: 0.25rem;">PRO LEAGUE EXCLUSIVE</span>
+        </div>
+        <div id="tournament-modal-body" style="font-size: 0.9rem; line-height: 1.6; color: #cbd5e1; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+        </div>
+        <div style="display: flex; justify-content: center;">
+          <button id="btn-close-tournament" class="btn btn-secondary">Đã hiểu</button>
         </div>
       </div>
     </div>

@@ -188,6 +188,9 @@ class OTTApp {
 
       // Tournament Code Elements
       tourneyCodeInput: document.getElementById('tourney-code-input'),
+      btnProJoinTournament: document.getElementById('btn-pro-join-tournament'),
+      btnViewTournament: document.getElementById('btn-view-tournament'),
+      proPlayerInputBox: document.getElementById('pro-player-input-box'),
       btnAdminCreateTourney: document.getElementById('btn-admin-create-tourney'),
       lobbyTourneyCodeBadge: document.getElementById('lobby-tourney-code-badge'),
       lobbyTourneyCodeText: document.getElementById('lobby-tourney-code-text'),
@@ -230,17 +233,33 @@ class OTTApp {
     if (auth.isGuest()) {
       if (this.dom.btnOpenLogin) this.dom.btnOpenLogin.style.display = 'inline-flex';
       if (this.dom.btnLogout) this.dom.btnLogout.style.display = 'none';
-      if (this.dom.btnProTournament) this.dom.btnProTournament.innerHTML = '👁️ Xem Trực Tiếp 4 Bàn Đấu (Khán Giả)';
+      if (this.dom.proPlayerInputBox) this.dom.proPlayerInputBox.style.display = 'none';
+      if (this.dom.btnViewTournament) {
+        this.dom.btnViewTournament.textContent = '👁️ Xem Trực Tiếp 4 Bàn (Khán Giả)';
+        this.dom.btnViewTournament.className = 'btn btn-gold';
+      }
     } else {
       if (this.dom.btnOpenLogin) this.dom.btnOpenLogin.style.display = 'none';
       if (this.dom.btnLogout) this.dom.btnLogout.style.display = 'inline-flex';
 
       if (auth.isProPlayer()) {
-        if (this.dom.btnProTournament) this.dom.btnProTournament.innerHTML = '⚔️ Vào Thi Đấu Giải Đấu (Bàn Của Bạn)';
+        if (this.dom.proPlayerInputBox) this.dom.proPlayerInputBox.style.display = 'flex';
+        if (this.dom.btnViewTournament) {
+          this.dom.btnViewTournament.textContent = '👁️ Xem Với Tư Cách Khán Giả';
+          this.dom.btnViewTournament.className = 'btn btn-secondary';
+        }
       } else if (auth.isAdmin()) {
-        if (this.dom.btnProTournament) this.dom.btnProTournament.innerHTML = '⚡ Quản Trị Giải Đấu (Admin Control)';
+        if (this.dom.proPlayerInputBox) this.dom.proPlayerInputBox.style.display = 'none';
+        if (this.dom.btnViewTournament) {
+          this.dom.btnViewTournament.textContent = '⚡ Vào Quản Trị Giải Đấu';
+          this.dom.btnViewTournament.className = 'btn btn-gold';
+        }
       } else {
-        if (this.dom.btnProTournament) this.dom.btnProTournament.innerHTML = '👁️ Xem Trực Tiếp 4 Bàn Đấu (Khán Giả)';
+        if (this.dom.proPlayerInputBox) this.dom.proPlayerInputBox.style.display = 'none';
+        if (this.dom.btnViewTournament) {
+          this.dom.btnViewTournament.textContent = '👁️ Xem Trực Tiếp 4 Bàn (Khán Giả)';
+          this.dom.btnViewTournament.className = 'btn btn-gold';
+        }
       }
     }
 
@@ -515,30 +534,43 @@ class OTTApp {
       });
     }
 
-    // Vào giải đấu (Kiểm tra mã giải đấu)
-    this.dom.btnProTournament.addEventListener('click', () => {
-      const currentCode = this.tournament.tournamentState.tournamentCode || 'PRO-8899';
-      const inputVal = (this.dom.tourneyCodeInput?.value || '').trim().toUpperCase();
+    // Nút Xem Trực Tiếp dành cho Khán giả (ai cũng vào xem được tự do không cần mã)
+    if (this.dom.btnViewTournament) {
+      this.dom.btnViewTournament.addEventListener('click', () => {
+        this.enterTournament(false);
+      });
+    }
 
-      // Nếu là Admin, cho phép vào trực tiếp
-      if (auth.isAdmin()) {
-        this.enterTournament();
-        return;
-      }
+    // Nút Tuyển thủ nhập mã để vào thi đấu bàn của mình
+    if (this.dom.btnProJoinTournament) {
+      this.dom.btnProJoinTournament.addEventListener('click', () => {
+        const user = auth.getCurrentUser();
+        if (!auth.isProPlayer()) {
+          this.showToast('Chỉ tài khoản Tuyển thủ (Pro Player) mới có quyền tham gia thi đấu!');
+          return;
+        }
 
-      // Nếu người dùng nhập mã khác với mã hiện tại
-      if (inputVal && inputVal !== currentCode) {
-        this.showToast(`❌ Mã giải "${inputVal}" không chính xác! (Mã đúng: ${currentCode})`);
-        return;
-      }
+        const inputCode = (this.dom.tourneyCodeInput?.value || '').trim().toUpperCase();
+        if (!inputCode) {
+          this.showToast('Vui lòng nhập mã giải đấu do Ban Tổ Chức cấp!');
+          return;
+        }
 
-      // Tự điền mã hợp lệ nếu người dùng bấm nhanh
-      if (this.dom.tourneyCodeInput) {
-        this.dom.tourneyCodeInput.value = currentCode;
-      }
+        const res = this.tournament.verifyProPlayerCode(user.username, inputCode);
+        if (res.success) {
+          this.showToast(`👑 Xác thực thành công! Tuyển thủ ${user.displayName} vào Bàn ${res.tableId}.`);
+          this.enterTournament(true);
+        } else {
+          this.showToast(res.error);
+        }
+      });
+    }
 
-      this.enterTournament();
-    });
+    if (this.dom.btnProTournament) {
+      this.dom.btnProTournament.addEventListener('click', () => {
+        this.enterTournament(auth.isProPlayer());
+      });
+    }
     this.dom.btnTourneyExit.addEventListener('click', () => this.exitTournament());
 
     // Switch view in tournament (Khán giả & Admin xem 4 bàn hoặc từng bàn)
@@ -615,11 +647,11 @@ class OTTApp {
   // TOURNAMENT LOGIC & RENDERING
   // =========================================================================
 
-  enterTournament() {
+  enterTournament(asCompetitor = false) {
     const user = auth.getCurrentUser();
     this.switchScreen('TOURNAMENT');
 
-    if (auth.isProPlayer()) {
+    if (asCompetitor && auth.isProPlayer()) {
       // Tuyển thủ Pro Player: Chỉ xem và chơi đúng bàn đấu được chia!
       const assignment = this.tournament.getPlayerAssignment(user.username);
       if (assignment) {
@@ -640,7 +672,7 @@ class OTTApp {
       this.setTourneyView('grid');
       this.showToast('Đang ở chế độ Quản trị viên (Admin BTC)!');
     } else {
-      // Khán giả (Guest hoặc Player thường): Được xem 4 bàn cùng lúc hoặc từng bàn
+      // Khán giả (Guest hoặc Player thường hoặc Pro Player xem trực tiếp): Được xem 4 bàn cùng lúc hoặc từng bàn
       this.dom.tourneyUserRoleLabel.textContent = `👁️ Chế độ: Khán giả xem trực tiếp (${user.displayName})`;
       this.dom.tourneyViewSwitcher.style.display = 'flex';
       this.dom.tourneyAdminControls.style.display = 'none';

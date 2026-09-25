@@ -59,6 +59,13 @@ export class TournamentManager {
     this.tournamentState = this.createInitialTournamentState();
     this.isConnected = false;
     this.autoSimInterval = null;
+
+    // Danh sách tuyển thủ đã xác thực mã giải đấu để được quyền di chuyển quân
+    this.verifiedProPlayers = new Set();
+    TOURNAMENT_TABLES_CONFIG.forEach(cfg => {
+      this.verifiedProPlayers.add(cfg.p1.username.toLowerCase());
+      this.verifiedProPlayers.add(cfg.p2.username.toLowerCase());
+    });
   }
 
   static generateTournamentCode() {
@@ -108,8 +115,31 @@ export class TournamentManager {
     }
     const newCode = TournamentManager.generateTournamentCode();
     this.tournamentState = this.createInitialTournamentState(newCode);
+    this.verifiedProPlayers.clear(); // Tuyển thủ cần nhập mã mới để vào đánh
     this.broadcastTournamentState();
     return { success: true, tournamentCode: newCode };
+  }
+
+  /**
+   * Tuyển thủ Pro Player nhập mã giải đấu để mở khóa quyền thi đấu
+   */
+  verifyProPlayerCode(username, inputCode) {
+    const assignment = this.getPlayerAssignment(username);
+    if (!assignment) {
+      return { success: false, error: 'Tài khoản của bạn không thuộc danh sách 8 Tuyển thủ Pro Player!' };
+    }
+    const clean = (inputCode || '').trim().toUpperCase();
+    const currentCode = (this.tournamentState.tournamentCode || 'PRO-8899').toUpperCase();
+    if (clean === currentCode) {
+      this.verifiedProPlayers.add(username.trim().toLowerCase());
+      return { success: true, tableId: assignment.tableId, role: assignment.role };
+    }
+    return { success: false, error: `Mã giải đấu không chính xác! Vui lòng nhập đúng mã giải do Admin cấp.` };
+  }
+
+  isProPlayerVerified(username) {
+    if (!username) return false;
+    return this.verifiedProPlayers.has(username.trim().toLowerCase());
   }
 
   /**
@@ -242,6 +272,11 @@ export class TournamentManager {
     const assignment = this.getPlayerAssignment(username);
     if (!assignment) {
       return { allowed: false, reason: 'Chế độ Khán giả (Spectator): Bạn chỉ được phép theo dõi, không được can thiệp vào ván đấu!' };
+    }
+
+    const cleanUser = username.trim().toLowerCase();
+    if (!this.verifiedProPlayers.has(cleanUser)) {
+      return { allowed: false, reason: 'Tuyển thủ cần nhập đúng mã giải đấu để được cấp quyền thi đấu!' };
     }
 
     if (assignment.tableId !== Number(tableId)) {

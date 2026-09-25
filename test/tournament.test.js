@@ -133,11 +133,22 @@ test('T7. Admin tạo giải đấu sinh mã ngẫu nhiên và kiểm tra quyề
   const invalidCheck = manager.validateTournamentCode('WRONG-CODE');
   assert.equal(invalidCheck.valid, false);
 
-  // Pro player được phép đánh tại bàn của mình
+  // Khi vừa tạo giải mới, Pro Player chưa xác thực mã thì chưa được đi
+  const fakerBeforeVerify = manager.canMakeMove('pro_faker', 1);
+  assert.equal(fakerBeforeVerify.allowed, false);
+  assert.match(fakerBeforeVerify.reason, /mã giải đấu/i);
+
+  // Nhập sai mã giải đấu
+  const verifyWrong = manager.verifyProPlayerCode('pro_faker', 'WRONG-CODE');
+  assert.equal(verifyWrong.success, false);
+
+  // Nhập đúng mã giải đấu => Xác thực thành công và được quyền đi
+  const verifyRight = manager.verifyProPlayerCode('pro_faker', createByAdmin.tournamentCode);
+  assert.equal(verifyRight.success, true);
   const fakerMoveCheck = manager.canMakeMove('pro_faker', 1);
   assert.equal(fakerMoveCheck.allowed, true);
 
-  // Viewer / Khán giả không được phép đánh
+  // Viewer / Khán giả không được phép đánh dù có mã hay không
   const viewerMoveCheck = manager.canMakeMove('guest', 1);
   assert.equal(viewerMoveCheck.allowed, false);
   assert.match(viewerMoveCheck.reason, /Khán giả|Viewer/i);

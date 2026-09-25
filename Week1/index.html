@@ -51,22 +51,31 @@
             </div>
             <h3 class="tournament-title">Giải Đấu Oẳn Tù Tì Chiến Thuật 4 Bàn Đấu Đồng Thời</h3>
             <p class="tournament-desc">
-              Nhập mã giải đấu bên dưới để tham gia. Tuyển thủ <strong>Pro Player</strong> nhập mã sẽ được vào bàn thi đấu. <strong>Guest & Người chơi thường</strong> vào với quyền <strong>Viewer (Khán giả)</strong> xem 4 bàn cùng lúc.
+              👁️ <strong>Khán giả (Viewer):</strong> Bất kỳ ai (Khách hoặc Player) đều vào xem trực tiếp 4 bàn cùng lúc <strong>tự do không cần mã</strong>.<br>
+              👑 <strong>Tuyển thủ (Pro Player):</strong> Cần nhập mã giải đấu do Ban Tổ Chức cấp để vào bàn thi đấu.
             </p>
-            <div style="margin-top: 0.65rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-              <span style="font-size: 0.85rem; color: #cbd5e1;">Mã giải hiện tại:</span>
+            <div id="lobby-tourney-code-info" style="margin-top: 0.65rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <span style="font-size: 0.85rem; color: #cbd5e1;">Mã giải thi đấu:</span>
               <div id="lobby-tourney-code-badge" class="tourney-code-pill" title="Click để sao chép mã">
                 🔑 <strong id="lobby-tourney-code-text">PRO-8899</strong> 📋
               </div>
             </div>
           </div>
           <div class="tournament-actions" style="display: flex; flex-direction: column; gap: 0.65rem; align-items: flex-end;">
-            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <!-- Khung nhập mã thi đấu cho Pro Player -->
+            <div id="pro-player-input-box" style="display: none; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
               <input type="text" id="tourney-code-input" class="form-input" placeholder="Mã giải (PRO-XXXX)" style="width: 175px; text-transform: uppercase; font-family: var(--font-mono); font-weight: 700; text-align: center; padding: 0.6rem 0.75rem;" maxlength="10">
-              <button id="btn-pro-tournament" class="btn btn-gold">
-                ⚔️ Vào Giải Đấu
+              <button id="btn-pro-join-tournament" class="btn btn-gold">
+                ⚔️ Tuyển Thủ Vào Đấu
               </button>
             </div>
+
+            <!-- Nút vào xem trực tiếp cho Khán giả (ai cũng vào xem được) -->
+            <button id="btn-view-tournament" class="btn btn-secondary" style="font-size: 0.95rem; font-weight: 700; padding: 0.65rem 1.25rem;">
+              👁️ Xem Trực Tiếp 4 Bàn (Khán Giả)
+            </button>
+
+            <!-- Nút tạo giải mới dành riêng cho Admin -->
             <button id="btn-admin-create-tourney" class="btn btn-primary" style="display: none; width: 100%; font-size: 0.85rem;" title="Chỉ Quản trị viên mới thấy nút này">
               🏆 Tạo Giải Đấu Mới (Admin Sinh Mã)
             </button>

@@ -317,11 +317,8 @@ class OTTApp {
         this.multiplayer.sendDrawOffer();
         this.showToast('Đã gửi lời mời hòa cờ tới đối thủ. Vui lòng chờ phản hồi...');
       } else {
-        if (confirm('Hai bên có đồng ý hòa ván cờ này không?')) {
-          const result = this.engine.agreeDraw();
-          this.timer.stop();
-          this.showGameOverModal(result);
-        }
+        this.dom.drawOfferDesc.textContent = 'Hai bên người chơi có đồng ý hòa cờ và kết thúc ván này không?';
+        this.openModal(this.dom.drawOfferModal);
       }
     });
 

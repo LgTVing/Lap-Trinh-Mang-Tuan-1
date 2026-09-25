@@ -1220,21 +1220,38 @@ div[style*="cursor: none"] {
    ========================================================================== */
 .compact-board {
   max-width: 100% !important;
+  width: fit-content !important;
+  margin: 0 auto !important;
+  padding: 0.35rem !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #080c14 !important;
 }
 
 .compact-board .board-grid {
+  grid-template-columns: repeat(9, 32px) !important;
+  grid-template-rows: repeat(9, 32px) !important;
   gap: 2px !important;
-  padding: 4px !important;
-  border-radius: 8px !important;
+  padding: 2px !important;
+  border-radius: 6px !important;
+  width: fit-content !important;
+  margin: 0 auto !important;
 }
 
 .compact-board .board-square {
-  font-size: 0.65rem !important;
-  border-radius: 3px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  font-size: 0.6rem !important;
+  border-radius: 2px !important;
 }
 
 .compact-board .piece-icon {
-  font-size: 1.1rem !important;
+  font-size: 1.05rem !important;
+  line-height: 1 !important;
 }
 
 .compact-board .piece-type-label {
@@ -1246,13 +1263,40 @@ div[style*="cursor: none"] {
 }
 
 .compact-board .target-badge {
-  font-size: 0.45rem !important;
-  padding: 1px 3px !important;
-  border-radius: 3px !important;
+  font-size: 0.42rem !important;
+  padding: 1px 2px !important;
+  border-radius: 2px !important;
+  bottom: 1px !important;
+  right: 1px !important;
 }
 
 .board-readonly .board-square {
   cursor: default !important;
+}
+
+/* Tourney Code Pill */
+.tourney-code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fbbf24;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tourney-code-pill:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+  transform: translateY(-1px);
 }
 
 /* ==========================================================================
@@ -1262,9 +1306,11 @@ div[style*="cursor: none"] {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-width: 1400px;
+  max-width: 1360px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .tourney-header-card {
@@ -1274,6 +1320,7 @@ div[style*="cursor: none"] {
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1rem 1.5rem;
+  box-sizing: border-box;
 }
 
 .tourney-header-left {
@@ -1348,8 +1395,10 @@ div[style*="cursor: none"] {
 /* 2x2 Grid View for 4 Tables */
 .tourney-grid-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tourney-table-card {
@@ -1357,6 +1406,9 @@ div[style*="cursor: none"] {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -1432,8 +1484,8 @@ div[style*="cursor: none"] {
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
+  margin: 0.35rem auto;
+  overflow: hidden;
 }
 
 .table-card-footer {

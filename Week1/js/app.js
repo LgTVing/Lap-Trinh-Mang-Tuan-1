@@ -186,6 +186,15 @@ class OTTApp {
       btnTourneyFinishRestart: document.getElementById('btn-tourney-finish-restart'),
       btnTourneyFinishExit: document.getElementById('btn-tourney-finish-exit'),
 
+      // Tournament Code Elements
+      tourneyCodeInput: document.getElementById('tourney-code-input'),
+      btnAdminCreateTourney: document.getElementById('btn-admin-create-tourney'),
+      lobbyTourneyCodeBadge: document.getElementById('lobby-tourney-code-badge'),
+      lobbyTourneyCodeText: document.getElementById('lobby-tourney-code-text'),
+      tourneyCodePill: document.getElementById('tourney-code-pill'),
+      tourneyDisplayCode: document.getElementById('tourney-display-code'),
+      btnTourneyAdminNewCode: document.getElementById('btn-tourney-admin-new-code'),
+
       // Toast
       toast: document.getElementById('toast')
     };
@@ -233,6 +242,13 @@ class OTTApp {
       } else {
         if (this.dom.btnProTournament) this.dom.btnProTournament.innerHTML = '👁️ Xem Trực Tiếp 4 Bàn Đấu (Khán Giả)';
       }
+    }
+
+    if (this.dom.btnAdminCreateTourney) {
+      this.dom.btnAdminCreateTourney.style.display = auth.isAdmin() ? 'block' : 'none';
+    }
+    if (this.dom.btnTourneyAdminNewCode) {
+      this.dom.btnTourneyAdminNewCode.style.display = auth.isAdmin() ? 'inline-flex' : 'none';
     }
   }
 
@@ -452,8 +468,77 @@ class OTTApp {
       });
     });
 
-    // Tournament Navigation & Controls
-    this.dom.btnProTournament.addEventListener('click', () => this.enterTournament());
+    // Copy mã giải đấu
+    const copyTourneyCode = () => {
+      const code = this.tournament.tournamentState.tournamentCode || 'PRO-8899';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => {
+          this.showToast(`📋 Đã sao chép mã giải đấu: ${code}`);
+        }).catch(() => {
+          this.showToast(`Mã giải đấu: ${code}`);
+        });
+      } else {
+        this.showToast(`Mã giải đấu: ${code}`);
+      }
+    };
+
+    if (this.dom.lobbyTourneyCodeBadge) {
+      this.dom.lobbyTourneyCodeBadge.addEventListener('click', copyTourneyCode);
+    }
+    if (this.dom.tourneyCodePill) {
+      this.dom.tourneyCodePill.addEventListener('click', copyTourneyCode);
+    }
+
+    // Admin tạo giải đấu mới (sinh mã) từ Lobby
+    if (this.dom.btnAdminCreateTourney) {
+      this.dom.btnAdminCreateTourney.addEventListener('click', () => {
+        const res = this.tournament.createTournament(auth.isAdmin());
+        if (res.success) {
+          this.showToast(`🎉 Đã tạo giải đấu mới! Mã giải: ${res.tournamentCode}`);
+          if (this.dom.tourneyCodeInput) this.dom.tourneyCodeInput.value = res.tournamentCode;
+          this.enterTournament();
+        } else {
+          this.showToast(res.error || 'Lỗi tạo giải đấu');
+        }
+      });
+    }
+
+    // Admin sinh mã mới từ trong phòng đấu
+    if (this.dom.btnTourneyAdminNewCode) {
+      this.dom.btnTourneyAdminNewCode.addEventListener('click', () => {
+        const res = this.tournament.createTournament(auth.isAdmin());
+        if (res.success) {
+          this.showToast(`🎉 Đã sinh mã giải mới: ${res.tournamentCode}! 4 bàn đấu đã làm mới.`);
+        } else {
+          this.showToast(res.error || 'Lỗi tạo mã mới');
+        }
+      });
+    }
+
+    // Vào giải đấu (Kiểm tra mã giải đấu)
+    this.dom.btnProTournament.addEventListener('click', () => {
+      const currentCode = this.tournament.tournamentState.tournamentCode || 'PRO-8899';
+      const inputVal = (this.dom.tourneyCodeInput?.value || '').trim().toUpperCase();
+
+      // Nếu là Admin, cho phép vào trực tiếp
+      if (auth.isAdmin()) {
+        this.enterTournament();
+        return;
+      }
+
+      // Nếu người dùng nhập mã khác với mã hiện tại
+      if (inputVal && inputVal !== currentCode) {
+        this.showToast(`❌ Mã giải "${inputVal}" không chính xác! (Mã đúng: ${currentCode})`);
+        return;
+      }
+
+      // Tự điền mã hợp lệ nếu người dùng bấm nhanh
+      if (this.dom.tourneyCodeInput) {
+        this.dom.tourneyCodeInput.value = currentCode;
+      }
+
+      this.enterTournament();
+    });
     this.dom.btnTourneyExit.addEventListener('click', () => this.exitTournament());
 
     // Switch view in tournament (Khán giả & Admin xem 4 bàn hoặc từng bàn)
@@ -602,6 +687,11 @@ class OTTApp {
 
   renderTournamentUI(tourneyState) {
     if (!tourneyState || !tourneyState.tables) return;
+
+    // Cập nhật mã giải đấu trên giao diện (Lobby và Header Tournament)
+    const tourneyCode = tourneyState.tournamentCode || 'PRO-8899';
+    if (this.dom.lobbyTourneyCodeText) this.dom.lobbyTourneyCodeText.textContent = tourneyCode;
+    if (this.dom.tourneyDisplayCode) this.dom.tourneyDisplayCode.textContent = tourneyCode;
 
     // 1. Cập nhật Status Bar tổng thể giải đấu
     const summary = this.tournament.getStatusSummary();

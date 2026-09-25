@@ -46,17 +46,31 @@
         <div class="tournament-content">
           <div class="tournament-info">
             <div class="tournament-tag">
-              <span>🏆 ĐẤU TRƯỜNG CHUYÊN NGHIỆP (PRO TOURNAMENT)</span>
-              <span class="badge-coming-soon">Sắp ra mắt</span>
+              <span>🏆 ĐẤU TRƯỜNG CHUYÊN NGHIỆP (PRO CHAMPIONSHIP 8 PLAYERS)</span>
+              <span id="lobby-tourney-status-badge" class="table-status-pill status-playing" style="margin-left: 0.5rem;">⚔️ Đang hoạt động</span>
             </div>
-            <h3 class="tournament-title">Hệ Thống Giải Đấu Dành Riêng Cho Pro Player</h3>
+            <h3 class="tournament-title">Giải Đấu Oẳn Tù Tì Chiến Thuật 4 Bàn Đấu Đồng Thời</h3>
             <p class="tournament-desc">
-              Chế độ thi đấu vòng tròn và loại trực tiếp đỉnh cao với hệ số ELO xếp hạng. Hệ thống phát triển dành riêng cho các tuyển thủ chuyên nghiệp (Role: <strong>Pro Player</strong>).
+              Nhập mã giải đấu bên dưới để tham gia. Tuyển thủ <strong>Pro Player</strong> nhập mã sẽ được vào bàn thi đấu. <strong>Guest & Người chơi thường</strong> vào với quyền <strong>Viewer (Khán giả)</strong> xem 4 bàn cùng lúc.
             </p>
+            <div style="margin-top: 0.65rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <span style="font-size: 0.85rem; color: #cbd5e1;">Mã giải hiện tại:</span>
+              <div id="lobby-tourney-code-badge" class="tourney-code-pill" title="Click để sao chép mã">
+                🔑 <strong id="lobby-tourney-code-text">PRO-8899</strong> 📋
+              </div>
+            </div>
           </div>
-          <button id="btn-pro-tournament" class="btn btn-gold">
-            ⚔️ Đăng Ký Giải Đấu
-          </button>
+          <div class="tournament-actions" style="display: flex; flex-direction: column; gap: 0.65rem; align-items: flex-end;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="tourney-code-input" class="form-input" placeholder="Mã giải (PRO-XXXX)" style="width: 175px; text-transform: uppercase; font-family: var(--font-mono); font-weight: 700; text-align: center; padding: 0.6rem 0.75rem;" maxlength="10">
+              <button id="btn-pro-tournament" class="btn btn-gold">
+                ⚔️ Vào Giải Đấu
+              </button>
+            </div>
+            <button id="btn-admin-create-tourney" class="btn btn-primary" style="display: none; width: 100%; font-size: 0.85rem;" title="Chỉ Quản trị viên mới thấy nút này">
+              🏆 Tạo Giải Đấu Mới (Admin Sinh Mã)
+            </button>
+          </div>
         </div>
       </section>
 
@@ -341,6 +355,9 @@
               </div>
             </div>
           </div>
+          <div id="tourney-code-pill" class="tourney-code-pill" title="Click để sao chép mã giải đấu">
+            🔑 Mã Giải: <strong id="tourney-display-code">PRO-8899</strong> 📋
+          </div>
           <div id="tourney-global-status" class="tourney-status-badge">
             ⚔️ 0/4 Bàn Hoàn Thành
           </div>
@@ -360,6 +377,9 @@
 
           <!-- Admin Controls -->
           <div id="tourney-admin-controls" class="tourney-admin-group" style="display: none;">
+            <button id="btn-tourney-admin-new-code" class="btn btn-primary" title="Tạo mã giải đấu mới và làm mới 4 bàn">
+              🏆 Tạo Mã Mới
+            </button>
             <button id="btn-tourney-admin-restart" class="btn btn-gold" title="Khởi động lại toàn bộ 4 bàn đấu">
               🔄 Restart Ván Đấu (Admin)
             </button>

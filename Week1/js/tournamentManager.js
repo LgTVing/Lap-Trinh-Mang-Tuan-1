@@ -61,7 +61,16 @@ export class TournamentManager {
     this.autoSimInterval = null;
   }
 
-  createInitialTournamentState() {
+  static generateTournamentCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'PRO-';
+    for (let i = 0; i < 4; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
+  createInitialTournamentState(customCode = null) {
     const tables = {};
     TOURNAMENT_TABLES_CONFIG.forEach(cfg => {
       const engine = new GameEngine({ playerTime: 900 }); // 15 phút cho giải đấu
@@ -81,11 +90,40 @@ export class TournamentManager {
     });
 
     return {
+      tournamentCode: customCode || 'PRO-8899',
+      active: true,
       round: 1,
       allFinished: false,
       tables,
       updatedAt: Date.now()
     };
+  }
+
+  /**
+   * Admin bấm tạo giải đấu -> Sinh mã mới và làm mới 4 bàn
+   */
+  createTournament(isAdmin) {
+    if (!isAdmin) {
+      return { success: false, error: 'Chỉ có tài khoản Admin (Ban Tổ Chức) mới có quyền tạo giải đấu!' };
+    }
+    const newCode = TournamentManager.generateTournamentCode();
+    this.tournamentState = this.createInitialTournamentState(newCode);
+    this.broadcastTournamentState();
+    return { success: true, tournamentCode: newCode };
+  }
+
+  /**
+   * Kiểm tra mã giải đấu khi tuyển thủ hoặc viewer nhập vào
+   */
+  validateTournamentCode(inputCode) {
+    if (!this.tournamentState || !this.tournamentState.tournamentCode) {
+      return { valid: false, error: 'Chưa có giải đấu nào được kích hoạt!' };
+    }
+    const clean = (inputCode || '').trim().toUpperCase();
+    if (clean === this.tournamentState.tournamentCode.toUpperCase()) {
+      return { valid: true, tournamentCode: this.tournamentState.tournamentCode };
+    }
+    return { valid: false, error: `Mã giải đấu không chính xác! (Mã đúng định dạng PRO-XXXX)` };
   }
 
   async init() {
@@ -298,9 +336,10 @@ export class TournamentManager {
       return { success: false, error: 'Chỉ có tài khoản Ban Tổ Chức (Admin) mới có quyền khởi động lại vòng đấu!' };
     }
 
-    this.tournamentState = this.createInitialTournamentState();
+    const currentCode = this.tournamentState.tournamentCode || 'PRO-8899';
+    this.tournamentState = this.createInitialTournamentState(currentCode);
     this.broadcastTournamentState();
-    return { success: true };
+    return { success: true, tournamentCode: currentCode };
   }
 
   /**

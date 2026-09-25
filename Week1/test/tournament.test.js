@@ -111,3 +111,34 @@ test('T6. Khóa ván đấu khi cả 4 bàn hoàn thành và chỉ Admin mới c
   assert.equal(manager.tournamentState.tables[1].status, GAME_STATUS.PLAYING);
   assert.equal(manager.tournamentState.tables[4].status, GAME_STATUS.PLAYING);
 });
+
+test('T7. Admin tạo giải đấu sinh mã ngẫu nhiên và kiểm tra quyền Tuyển thủ / Viewer', () => {
+  const manager = new TournamentManager({});
+
+  // Người dùng thường không thể tạo giải
+  const createByNonAdmin = manager.createTournament(false);
+  assert.equal(createByNonAdmin.success, false);
+
+  // Admin tạo giải đấu mới
+  const createByAdmin = manager.createTournament(true);
+  assert.equal(createByAdmin.success, true);
+  assert.match(createByAdmin.tournamentCode, /^PRO-[A-Z0-9]{4}$/);
+  assert.equal(manager.tournamentState.tournamentCode, createByAdmin.tournamentCode);
+
+  // Kiểm tra mã giải đấu hợp lệ
+  const validCheck = manager.validateTournamentCode(createByAdmin.tournamentCode);
+  assert.equal(validCheck.valid, true);
+
+  // Kiểm tra mã giải đấu sai
+  const invalidCheck = manager.validateTournamentCode('WRONG-CODE');
+  assert.equal(invalidCheck.valid, false);
+
+  // Pro player được phép đánh tại bàn của mình
+  const fakerMoveCheck = manager.canMakeMove('pro_faker', 1);
+  assert.equal(fakerMoveCheck.allowed, true);
+
+  // Viewer / Khán giả không được phép đánh
+  const viewerMoveCheck = manager.canMakeMove('guest', 1);
+  assert.equal(viewerMoveCheck.allowed, false);
+  assert.match(viewerMoveCheck.reason, /Khán giả|Viewer/i);
+});

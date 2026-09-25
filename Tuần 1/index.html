@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OTTv2 – Oẳn Tù Tì Chiến Thuật 9x9 (Multiplayer Web Game)</title>
+  <meta name="description" content="Trò chơi Oẳn Tù Tì chiến thuật 2 người trên bàn cờ 9x9 với tính năng chơi nhiều phòng đồng thời qua playhtml.fun, chuẩn Server-Authoritative.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="bg-mesh"></div>
+
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-icon">⚔️</span>
+        <h1 class="brand-title">OTTv2</h1>
+        <span class="brand-badge">9x9 Arena</span>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-toggle-sound" class="btn btn-secondary btn-icon" title="Bật/Tắt âm thanh">🔊</button>
+        <button id="btn-help" class="btn btn-secondary" title="Xem luật chơi">📖 Luật chơi</button>
+      </div>
+    </header>
+
+    <!-- SCREEN 1: LOBBY (Tạo phòng, vào phòng, cấu hình ván đấu) -->
+    <main id="lobby-screen" class="lobby-screen">
+      <!-- Cột Tạo phòng & Cài đặt -->
+      <section class="glass-card">
+        <h2 class="card-title">🎮 Tạo phòng mới</h2>
+        
+        <div class="form-group">
+          <label class="form-label">Chọn chế độ thời gian (Preset):</label>
+          <div class="preset-pills">
+            <button type="button" class="preset-pill" data-preset="blitz">⚡ Chớp (3p)</button>
+            <button type="button" class="preset-pill" data-preset="rapid">⏱️ Nhanh (5p)</button>
+            <button type="button" class="preset-pill active" data-preset="classic">♟️ Cổ điển (10p)</button>
+            <button type="button" class="preset-pill" data-preset="deep">🧠 Sâu (15p)</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="time-control-select" class="form-label">Thời gian mỗi người (Time Control):</label>
+          <select id="time-control-select" class="form-select">
+            <option value="180">3 phút</option>
+            <option value="300">5 phút</option>
+            <option value="600" selected>10 phút (Mặc định)</option>
+            <option value="900">15 phút</option>
+            <option value="1800">30 phút</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="move-time-select" class="form-label">Giới hạn thời gian mỗi nước (Chống câu giờ):</label>
+          <select id="move-time-select" class="form-select">
+            <option value="" selected>Tắt (Không giới hạn)</option>
+            <option value="15">15 giây / nước</option>
+            <option value="30">30 giây / nước</option>
+            <option value="60">60 giây / nước</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Luật hòa cờ (Draw Rules):</label>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.25rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="threefold-check" checked> Lặp trạng thái 3 lần (Threefold repetition)
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; cursor: pointer;">
+              <input type="checkbox" id="fifty-move-check" checked> 50 nước không ăn quân (Fifty-move rule)
+            </label>
+          </div>
+        </div>
+
+        <button id="btn-create-room" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 0.85rem;">
+          🚀 Tạo phòng Online (playhtml.fun)
+        </button>
+      </section>
+
+      <!-- Cột Tham gia phòng & Chơi ngoại tuyến -->
+      <section class="glass-card join-section">
+        <div>
+          <h2 class="card-title">🔑 Tham gia phòng</h2>
+          <p style="font-size: 0.88rem; color: #94a3b8; margin-bottom: 0.75rem;">
+            Nhập mã phòng 6 ký tự do đối thủ chia sẻ:
+          </p>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="join-room-input" class="form-input" placeholder="Ví dụ: ABC123" maxlength="6" style="text-transform: uppercase; font-family: var(--font-mono); font-weight: 700;">
+            <button id="btn-join-room" class="btn btn-primary" style="white-space: nowrap;">Vào phòng</button>
+          </div>
+        </div>
+
+        <div class="or-divider">HOẶC</div>
+
+        <div>
+          <h2 class="card-title">👥 Chơi 2 người trên cùng máy</h2>
+          <p style="font-size: 0.88rem; color: #94a3b8; margin-bottom: 0.75rem;">
+            Thử nghiệm chiến thuật hoặc chơi trực tiếp trên 1 thiết bị:
+          </p>
+          <button id="btn-local-play" class="btn btn-secondary" style="width: 100%; padding: 0.85rem;">
+            💻 Bắt đầu chơi Offline
+          </button>
+        </div>
+
+        <div class="rules-preview">
+          <div class="rule-item">
+            <span class="rule-icon">✊✋✌️</span>
+            <div><strong>Oẳn tù tì chuẩn:</strong> Đấm ăn Kéo, Kéo ăn Lá, Lá ăn Đấm. Cùng loại chặn nhau.</div>
+          </div>
+          <div class="rule-item">
+            <span class="rule-icon">👑</span>
+            <div><strong>Di chuyển tự do:</strong> Đi 1 ô theo 8 hướng (như quân Vua trong cờ vua). Cấm tự sát!</div>
+          </div>
+          <div class="rule-item">
+            <span class="rule-icon">🏁</span>
+            <div><strong>Chiếm căn cứ:</strong> P1 tiến vào ô <code>i9</code> hoặc P2 tiến vào ô <code>a1</code> để thắng!</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- SCREEN 1.5: PHÒNG CHỜ (WAITING ROOM - 2 NGƯỜI CHƠI) -->
+    <main id="waiting-screen" class="waiting-screen" style="display: none;">
+      <section class="glass-card waiting-header">
+        <h2 class="card-title" style="justify-content: center;">🛋️ Phòng chờ trận đấu</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">
+          Chia sẻ mã phòng này cho đối thủ. Cả 2 người chơi cùng nhấn <strong>Sẵn sàng</strong> để bắt đầu trận đấu!
+        </p>
+        
+        <div id="waiting-room-code-box" class="waiting-code-box" title="Bấm để sao chép mã phòng">
+          <span>MÃ PHÒNG:</span>
+          <span id="waiting-room-code" class="waiting-code-text">------</span>
+          <span>📋</span>
+        </div>
+
+        <div id="waiting-countdown-box" class="countdown-banner" style="display: none; margin-top: 0.75rem;">
+          Trận đấu bắt đầu sau 3... 2... 1...
+        </div>
+      </section>
+
+      <section class="waiting-slots">
+        <!-- Slot Người chơi 1 (Host - Xanh) -->
+        <div id="slot-p1" class="waiting-slot slot-p1">
+          <div class="slot-avatar">P1</div>
+          <div class="slot-name">Người chơi 1 (Chủ phòng)</div>
+          <div id="p1-status-pill" class="slot-status-pill status-present">
+            🟢 Đã trong phòng
+          </div>
+          <div id="p1-ready-badge" class="slot-ready-status not-ready">
+            Chưa sẵn sàng
+          </div>
+          <button id="btn-p1-ready" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+            ✅ Tôi đã Sẵn sàng
+          </button>
+        </div>
+
+        <!-- Slot Người chơi 2 (Guest - Đỏ) -->
+        <div id="slot-p2" class="waiting-slot slot-p2">
+          <div class="slot-avatar">P2</div>
+          <div class="slot-name">Người chơi 2 (Khách)</div>
+          <div id="p2-status-pill" class="slot-status-pill status-waiting">
+            ⏳ Đang chờ tham gia...
+          </div>
+          <div id="p2-ready-badge" class="slot-ready-status not-ready">
+            Chưa sẵn sàng
+          </div>
+          <button id="btn-p2-ready" class="btn btn-danger" style="width: 100%; margin-top: 0.5rem;" disabled>
+            ✅ Tôi đã Sẵn sàng
+          </button>
+        </div>
+      </section>
+
+      <div style="display: flex; justify-content: center; gap: 1rem;">
+        <button id="btn-cancel-waiting" class="btn btn-secondary">
+          🚪 Rời phòng chờ
+        </button>
+      </div>
+    </main>
+
+    <!-- SCREEN 2: GAME BOARD ARENA -->
+    <main id="game-screen" class="game-screen" style="display: none;">
+      <!-- Bảng thông tin Player 1 (Xanh) -->
+      <aside class="player-panel">
+        <div id="p1-card" class="player-card p1 active-turn">
+          <div class="player-card-header">
+            <div class="player-identity">
+              <div class="player-avatar">P1</div>
+              <div class="player-name-wrapper">
+                <span class="player-title">Người chơi 1</span>
+                <span class="player-subtitle">Mục tiêu: Ô i9 🏁</span>
+              </div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--p1-light); font-weight: 700;">Đi trước</span>
+          </div>
+
+          <div id="p1-clock" class="player-clock">10:00</div>
+
+          <div class="piece-counters">
+            <div class="piece-counter-item">
+              <span class="counter-icon">✊</span>
+              <span class="counter-label">ĐẤM</span>
+              <span id="p1-rock-count" class="counter-count">5</span>
+            </div>
+            <div class="piece-counter-item">
+              <span class="counter-icon">✋</span>
+              <span class="counter-label">LÁ</span>
+              <span id="p1-paper-count" class="counter-count">5</span>
+            </div>
+            <div class="piece-counter-item">
+              <span class="counter-icon">✌️</span>
+              <span class="counter-label">KÉO</span>
+              <span id="p1-scissors-count" class="counter-count">5</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trạng thái kết nối / Mã phòng -->
+        <div class="glass-card" style="padding: 1rem; text-align: center;">
+          <div id="room-code-display" class="room-badge" title="Bấm để sao chép mã phòng">
+            Phòng: ------ 📋
+          </div>
+          <div id="connection-status" style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">
+            🟢 Đang kết nối...
+          </div>
+        </div>
+      </aside>
+
+      <!-- Khu vực trung tâm: Bàn cờ 9x9 -->
+      <section class="board-area">
+        <div id="turn-banner" class="turn-banner">
+          <div id="turn-dot" class="turn-dot p1"></div>
+          <span id="turn-text">Lượt: Người chơi 1 (Xanh)</span>
+        </div>
+
+        <div id="board-container"></div>
+      </section>
+
+      <!-- Bảng thông tin Player 2 & Sidebar hành động -->
+      <aside class="sidebar-panel">
+        <div id="p2-card" class="player-card p2">
+          <div class="player-card-header">
+            <div class="player-identity">
+              <div class="player-avatar">P2</div>
+              <div class="player-name-wrapper">
+                <span class="player-title">Người chơi 2</span>
+                <span class="player-subtitle">Mục tiêu: Ô a1 🏁</span>
+              </div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--p2-light); font-weight: 700;">Đi sau</span>
+          </div>
+
+          <div id="p2-clock" class="player-clock">10:00</div>
+
+          <div class="piece-counters">
+            <div class="piece-counter-item">
+              <span class="counter-icon">✊</span>
+              <span class="counter-label">ĐẤM</span>
+              <span id="p2-rock-count" class="counter-count">5</span>
+            </div>
+            <div class="piece-counter-item">
+              <span class="counter-icon">✋</span>
+              <span class="counter-label">LÁ</span>
+              <span id="p2-paper-count" class="counter-count">5</span>
+            </div>
+            <div class="piece-counter-item">
+              <span class="counter-icon">✌️</span>
+              <span class="counter-label">KÉO</span>
+              <span id="p2-scissors-count" class="counter-count">5</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lịch sử nước đi -->
+        <div class="glass-card history-card">
+          <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+            📜 Lịch sử nước đi
+          </h3>
+          <div id="history-list" class="history-list"></div>
+        </div>
+
+        <!-- Nút điều khiển -->
+        <div class="game-controls">
+          <button id="btn-resign" class="btn btn-danger">🏳️ Đầu hàng (Resign)</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="btn-rematch" class="btn btn-secondary" style="flex: 1;">🔄 Chơi lại</button>
+            <button id="btn-exit-lobby" class="btn btn-secondary" style="flex: 1;">🚪 Về sảnh</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- MODAL KẾT QUẢ TRẬN ĐẤU -->
+    <div id="result-modal" class="modal-overlay">
+      <div class="modal-box">
+        <div id="result-trophy" class="modal-trophy">🏆</div>
+        <h2 id="result-title" class="modal-title">CHIẾN THẮNG!</h2>
+        <p id="result-desc" class="modal-desc">Người chơi đã ăn sạch toàn bộ quân của đối phương.</p>
+        <div class="modal-actions">
+          <button id="btn-modal-rematch" class="btn btn-primary">🔄 Chơi lại ván mới</button>
+          <button id="btn-modal-exit" class="btn btn-secondary">🚪 Quay về sảnh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HƯỚNG DẪN LUẬT CHƠI -->
+    <div id="rules-modal" class="modal-overlay">
+      <div class="modal-box" style="text-align: left; max-width: 620px;">
+        <h2 class="modal-title" style="text-align: center; margin-bottom: 1rem;">📖 LUẬT CHƠI OTTV2</h2>
+        <div style="max-height: 420px; overflow-y: auto; padding-right: 0.5rem; font-size: 0.9rem; line-height: 1.6; color: #cbd5e1;">
+          <h3 style="color: var(--p1-light); margin-top: 0.5rem;">1. Bàn cờ & Quân cờ</h3>
+          <p>• Kích thước 9x9 (81 ô, tọa độ <code>a1</code> đến <code>i9</code>).</p>
+          <p>• Mỗi bên 15 quân: 5 Đấm (Rock), 5 Lá (Paper), 5 Kéo (Scissors) xếp đối xứng ở 3 hàng đầu và 3 hàng cuối.</p>
+          
+          <h3 style="color: var(--p1-light); margin-top: 0.75rem;">2. Di chuyển quân</h3>
+          <p>• Mỗi quân di chuyển đúng 1 ô theo <strong>8 hướng</strong> (tương tự quân Vua trong cờ vua).</p>
+          <p>• Không nhảy qua quân, không đi ra ngoài bàn cờ, không đi vào ô chứa quân cùng phe.</p>
+
+          <h3 style="color: var(--p1-light); margin-top: 0.75rem;">3. Quy tắc ăn quân & Chặn đường</h3>
+          <p>• ✊ <strong>Đấm</strong> ăn ✌️ <strong>Kéo</strong> | ✌️ <strong>Kéo</strong> ăn ✋ <strong>Lá</strong> | ✋ <strong>Lá</strong> ăn ✊ <strong>Đấm</strong>.</p>
+          <p>• <strong>Cùng loại:</strong> Không ăn được nhau, chỉ đứng chặn đường nhau.</p>
+          <p>• <strong>Cấm tự sát:</strong> Quân yếu thế tuyệt đối không được tự ý đi vào ô của quân đối phương đang khắc chế nó (ví dụ: Đấm không thể tự đi vào ô Lá).</p>
+
+          <h3 style="color: var(--p1-light); margin-top: 0.75rem;">4. Điều kiện thắng trận</h3>
+          <p>• <strong>Cách 1:</strong> Ăn sạch toàn bộ 5 quân của 1 loại bất kỳ của đối thủ (hết Đấm, hết Lá, hoặc hết Kéo).</p>
+          <p>• <strong>Cách 2:</strong> Người chơi 1 đưa quân vào ô <code>i9</code> hoặc Người chơi 2 đưa quân vào ô <code>a1</code>.</p>
+          <p>• <strong>Cách 3:</strong> Đối phương hết thời gian (Timeout) hoặc đầu hàng (Resign).</p>
+
+          <h3 style="color: var(--p1-light); margin-top: 0.75rem;">5. Điều kiện hòa</h3>
+          <p>• Lặp lại trạng thái bàn cờ 3 lần (Threefold repetition).</p>
+          <p>• 50 nước đi liên tiếp không có quân nào bị ăn (50-move rule).</p>
+          <p>• Hết nước đi hợp lệ khi tới lượt mình (Stalemate).</p>
+        </div>
+        <div style="margin-top: 1.25rem; text-align: center;">
+          <button id="btn-close-rules" class="btn btn-primary" style="min-width: 140px;">Đã hiểu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Thông báo</div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
